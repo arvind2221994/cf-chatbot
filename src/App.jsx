@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { IoMdSend } from "react-icons/io";
-import { TextField, Paper, Button, Typography, Container, Box, Stack, Snackbar } from '@mui/material';
+import { TextField, Paper, Button, Typography, Container, Box, Stack, Snackbar, Alert } from '@mui/material';
+import { useGetAIResponse } from './hooks/useGetAIResponse';
 
 function App() {
   const [open, setOpen] = useState(false);
   const [apiResponse, setApiResponse] = useState("");
   const [userPrompt, setUserPrompt] = useState("");
+  const [showAlert, setShowAlert] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -17,9 +19,26 @@ function App() {
   function handleClose() {
     setOpen(false);
   }
+  function handleErrorClose() {
+    setShowAlert(false);
+  }
+  function handleSend() {
+    if(userPrompt.length > 500){
+        setOpen(true);
+        return;
+    }
+    useGetAIResponse(userPrompt).then(response => {
+        if(!response){
+            setShowAlert(true);
+            return;
+        }
+        setApiResponse(response);
+    });
+  }
 
   function handleInputChange(event) {
     if(event.target.value.length > 500){
+        setUserPrompt(event.target.value.slice(0, 499));
         setOpen(true);
         return;
     }
@@ -66,7 +85,7 @@ function App() {
                       value={userPrompt}
                       onChange={(e) => handleInputChange(e)}
                   />
-                  <Button endIcon={<IoMdSend />}>
+                  <Button sx={{ fontWeight: 'bold' }} onClick={()=>handleSend()} endIcon={<IoMdSend />}>
                       Send
                   </Button>
               </Stack>
@@ -76,6 +95,20 @@ function App() {
                 onClose={handleClose}
                 message="Prompt exceeds 500 character limit."
                 />
+                <Snackbar
+                open={showAlert}
+                autoHideDuration={2000}
+                onClose={handleErrorClose}
+                >
+                    <Alert
+                        onClose={handleErrorClose}
+                        severity={userPrompt ? "error" : "info"}
+                        sx={{ width: '100%' }}
+                    >
+                        {userPrompt ? "Failed to get a response from the AI. Please try again." : "No input detected. Please enter a prompt."}
+                    </Alert>
+                </Snackbar>
+                
           </Box>
       </Container>
   )

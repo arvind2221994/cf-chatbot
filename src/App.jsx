@@ -1,14 +1,9 @@
 import { useState, useEffect } from 'react';
 import { IoMdSend } from "react-icons/io";
-import { TextField, Paper } from '@mui/material';
-import Button from '@mui/material/Button';
-import Typography from '@mui/material/Typography';
-import Container from '@mui/material/Container';
-import Box from '@mui/material/Box';
-import Stack from '@mui/material/Stack';
+import { TextField, Paper, Button, Typography, Container, Box, Stack, Snackbar } from '@mui/material';
 
 function App() {
-  const [count, setCount] = useState(0);
+  const [open, setOpen] = useState(false);
   const [apiResponse, setApiResponse] = useState("");
   const [userPrompt, setUserPrompt] = useState("");
 
@@ -18,6 +13,18 @@ function App() {
     }, 500); // 500ms delay
     return () => clearTimeout(timer);
   }, []);
+
+  function handleClose() {
+    setOpen(false);
+  }
+
+  function handleInputChange(event) {
+    if(event.target.value.length > 500){
+        setOpen(true);
+        return;
+    }
+    setUserPrompt(event.target.value);
+  }
 
   return (
       <Container
@@ -57,12 +64,18 @@ function App() {
                       placeholder="Type your prompt here..."
                       fullWidth
                       value={userPrompt}
-                      onChange={(e) => setUserPrompt(e.target.value)}
+                      onChange={(e) => handleInputChange(e)}
                   />
                   <Button endIcon={<IoMdSend />}>
                       Send
                   </Button>
               </Stack>
+              <Snackbar
+                open={open}
+                autoHideDuration={2000}
+                onClose={handleClose}
+                message="Prompt exceeds 500 character limit."
+                />
           </Box>
       </Container>
   )

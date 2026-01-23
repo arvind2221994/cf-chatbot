@@ -1,6 +1,5 @@
 {
   "name": "cf-chatbot",
-  "account_id": "f8fff5936774744c0a43f4ed75e4dd70", 
   "pages_build_output_dir": "dist",
   "compatibility_date": "2024-04-05",
   "compatibility_flags": [

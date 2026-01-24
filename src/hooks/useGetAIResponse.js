@@ -4,7 +4,7 @@
  * @param {Function} onChunk - Callback function to receive text chunks as they stream in
  * @returns {Promise<string|null>} - The complete AI response or null if error
  */
-export async function useGetAIResponse(prompt, onChunk) {
+export async function useGetAIResponse(prompt, language, onChunk) {
   if (!prompt || prompt.trim() === '') {
     return null;
   }
@@ -14,7 +14,10 @@ export async function useGetAIResponse(prompt, onChunk) {
     console.log('Available models:', models);
     const response = await fetch('/api/chat', {
       method: 'POST',
-      body: JSON.stringify({ prompt: userPrompt }),
+      body: JSON.stringify({ 
+        prompt: userPrompt,
+        language: language
+      }),
     });
     console.log(response);
     const reader = response.body.getReader();

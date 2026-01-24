@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { IoMdSend } from "react-icons/io";
-import { TextField, Paper, Button, Typography, Container, Box, Stack, Snackbar, Alert } from '@mui/material';
+import { TextField, Paper, Button, Typography, Container, Box, Stack, Snackbar, Alert, Skeleton } from '@mui/material';
 import { useGetAIResponse } from './hooks/useGetAIResponse';
 
 function App() {
@@ -8,13 +8,7 @@ function App() {
   const [apiResponse, setApiResponse] = useState("");
   const [userPrompt, setUserPrompt] = useState("");
   const [showAlert, setShowAlert] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setApiResponse('The AI says: "Here is the information you requested..."');
-    }, 500); // 500ms delay
-    return () => clearTimeout(timer);
-  }, []);
+  const [isLoading, setIsLoading] = useState(false);
 
   function handleClose() {
     setOpen(false);
@@ -22,18 +16,35 @@ function App() {
   function handleErrorClose() {
     setShowAlert(false);
   }
-  function handleSend() {
+  async function handleEnter(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      await handleSend();
+    }
+  }
+  async function handleSend() {
     if(userPrompt.length > 500){
         setOpen(true);
         return;
     }
-    useGetAIResponse(userPrompt).then(response => {
-        if(!response){
-            setShowAlert(true);
-            return;
-        }
-        setApiResponse(response);
+    if (!userPrompt.trim()) return;
+    
+    setIsLoading(true);
+    setApiResponse(""); // Clear previous response
+    setShowAlert(false);
+    
+    const response = await useGetAIResponse(userPrompt, (text) => {
+      setApiResponse(text); // Update UI as chunks arrive
+    }).then((res) => {
+      return res;
+    }).catch((err) => {
+      setShowAlert(true);
+      return null;
+    }).finally(() => {
+      setIsLoading(false);
+      setUserPrompt("");
     });
+
   }
 
   function handleInputChange(event) {
@@ -57,8 +68,11 @@ function App() {
       >
           <Box sx={{ mb: 2 }}>
               <Typography variant="h4" component="h1" align="center" gutterBottom>
-                  Sample chatbot UI
+                  SPK chatbot (ನೈಸರ್ಗಿಕ ಕೃಷಿ ಮಾರ್ಗದರ್ಶಿ)
               </Typography>
+                <Typography variant="body2" align="center" color="textSecondary">
+                    ನೈಸರ್ಗಿಕ ಕೃಷಿಯ ಬಗ್ಗೆ ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು ಕೇಳಿ
+                </Typography>
           </Box>
           <Paper
               elevation={apiResponse ? 1 : 0}
@@ -70,9 +84,25 @@ function App() {
                   minHeight: { xs: 100, sm: 150 }
               }}
           >
-              <Typography variant="body2" sx={{ opacity: apiResponse ? 1 : 0, transition: 'opacity 0.5s ease-in-out' }}>
+              {isLoading && !apiResponse ? (
+                <Box>
+                  <Skeleton variant="text" sx={{ fontSize: '1rem' }} />
+                  <Skeleton variant="text" sx={{ fontSize: '1rem' }} />
+                  <Skeleton variant="text" sx={{ fontSize: '1rem', width: '80%' }} />
+                </Box>
+              ) : (
+                <Typography 
+                  variant="body2"
+                  sx={{
+                    maxHeight: 'calc(100vh - 350px)',
+                    overflowY: 'auto',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word'
+                  }}
+                >
                   {apiResponse}
-              </Typography>
+                </Typography>
+              )}
           </Paper>
           <Box sx={{ mt: 2 }}>
               <Stack direction="row" spacing={1} sx={{ width: '100%' }}>
@@ -84,8 +114,15 @@ function App() {
                       fullWidth
                       value={userPrompt}
                       onChange={(e) => handleInputChange(e)}
+                      onKeyDown={(e) => handleEnter(e)}
+                      disabled={isLoading}
                   />
-                  <Button sx={{ fontWeight: 'bold' }} onClick={()=>handleSend()} endIcon={<IoMdSend />}>
+                  <Button 
+                      sx={{ fontWeight: 'bold' }} 
+                      onClick={()=>handleSend()} 
+                      endIcon={<IoMdSend />}
+                      disabled={isLoading || !userPrompt.trim()}
+                  >
                       Send
                   </Button>
               </Stack>

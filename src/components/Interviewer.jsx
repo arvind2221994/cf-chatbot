@@ -13,16 +13,23 @@ import {
     Stack,
     Skeleton,
     Chip,
-    LinearProgress
+    LinearProgress,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem
 } from '@mui/material';
 import { IoMdSend } from "react-icons/io";
 import { useGetAIResponse } from '../hooks/useGetAIResponse';
 
 const TOPICS = [
-    "JavaScript Fundamentals",
-    "React.js & Front-End",
-    "Node.js & Backend",
+    "JavaScript Programming",
+    "React.js and State Management",
+    "Frontend, Performance, Optimization",
+    "Node.js and Express.js",
+    "Backend, Cloud and DevOps",
     "System Design",
+    "Full Stack and AI (Application oriented)",
     "Data Structures & Algorithms"
 ];
 
@@ -31,6 +38,7 @@ const TOTAL_QUESTIONS = 20;
 function Interviewer() {
     const [phase, setPhase] = useState('selection'); // 'selection' | 'interviewing' | 'completed'
     const [selectedTopic, setSelectedTopic] = useState('');
+    const [difficulty, setDifficulty] = useState('Mid');
     const [conversation, setConversation] = useState([]);
     const [userAnswer, setUserAnswer] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -51,9 +59,8 @@ function Interviewer() {
         setQuestionCount(1);
 
         // Initial prompt to start the interview
-        const prompt = `We are starting a mock technical interview. The topic is "${topic}". You are the interviewer. I am the candidate.
-This will be a ${TOTAL_QUESTIONS}-question interview.
-Please ask me the first question about ${topic}. Limit your response to just the question itself. Wait for my response before proceeding.`;
+        const prompt = `We are starting a mock technical interview. The topic is "${topic}". The difficulty level is "${difficulty}". This will be a ${TOTAL_QUESTIONS}-question interview.
+                        Please ask me the first question about ${topic} at a ${difficulty} difficulty level. Limit your response to just the question itself. Wait for my response before proceeding.`;
 
         await sendToAI(prompt, true);
     };
@@ -135,9 +142,28 @@ Please briefly evaluate my answer in 1-2 sentences. Then, explicitly state "Ques
                 <Typography variant="h4" fontWeight="bold" align="center" gutterBottom>
                     Technical Interview Practice
                 </Typography>
-                <Typography variant="body1" align="center" color="textSecondary" sx={{ mb: 6 }}>
-                    Select a topic below to begin a {TOTAL_QUESTIONS}-question mock interview.
+                <Typography variant="body1" align="center" color="textSecondary" sx={{ mb: 4 }}>
+                    Select your difficulty level and a topic below to begin a {TOTAL_QUESTIONS}-question mock interview.
                 </Typography>
+
+                <Box sx={{ mb: 6, display: 'flex', justifyContent: 'center' }}>
+                    <FormControl sx={{ minWidth: 260 }} size="large">
+                        <InputLabel id="difficulty-select-label">Select Difficulty</InputLabel>
+                        <Select
+                            labelId="difficulty-select-label"
+                            id="difficulty-select"
+                            value={difficulty}
+                            label="Select Difficulty"
+                            onChange={(e) => setDifficulty(e.target.value)}
+                            sx={{ borderRadius: 2, bgcolor: '#ffffff' }}
+                        >
+                            <MenuItem value="Entry">Entry Level</MenuItem>
+                            <MenuItem value="Mid">Mid Level</MenuItem>
+                            <MenuItem value="Senior">Senior Level</MenuItem>
+                            <MenuItem value="Research">Research / Expert</MenuItem>
+                        </Select>
+                    </FormControl>
+                </Box>
 
                 <Grid container spacing={3}>
                     {TOPICS.map((topic, idx) => (

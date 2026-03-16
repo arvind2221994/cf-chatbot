@@ -43,6 +43,7 @@ function Interviewer() {
     const [userAnswer, setUserAnswer] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [questionCount, setQuestionCount] = useState(0);
+    const [score, setScore] = useState({ correct: 0, partial: 0, incorrect: 0 });
     const messagesEndRef = useRef(null);
 
     const scrollToBottom = () => {
@@ -58,11 +59,13 @@ function Interviewer() {
         setPhase('interviewing');
         setQuestionCount(1);
 
-        // Initial prompt to start the interview
-        const prompt = `We are starting a mock technical interview. The topic is "${topic}". The difficulty level is "${difficulty}". This will be a ${TOTAL_QUESTIONS}-question interview.
-                        Please ask me the first question about ${topic} at a ${difficulty} difficulty level. Limit your response to just the question itself. Wait for my response before proceeding.`;
+        // Let the AI use its system instruction directly to structure the session
+        const prompt = `Begin the interview. Topic: "${topic}". Difficulty: "${difficulty}". Total Questions: ${TOTAL_QUESTIONS}. Start by giving me the first question.`;
+        
+        const initialConv = [{ role: 'user', content: prompt, isHidden: true }];
+        setConversation(initialConv);
 
-        await sendToAI(prompt, true);
+        await sendToAI(prompt, true, initialConv);
     };
 
     const handleSendAnswer = async () => {
@@ -70,48 +73,56 @@ function Interviewer() {
 
         const currentAnswer = userAnswer;
         setUserAnswer("");
-        const nextCount = questionCount + 1;
 
-        // Add user's answer to the conversation UI
-        setConversation(prev => [
-            ...prev,
+        // Add user's answer to the conversation UI synchronously for sendToAI to reference
+        const currentConv = [
+            ...conversation,
             { role: 'user', content: currentAnswer }
-        ]);
+        ];
+        
+        setConversation(currentConv);
 
-        let prompt = "";
-        if (nextCount > TOTAL_QUESTIONS) {
-            prompt = `Here is my answer to the final question: "${currentAnswer}". 
-Please evaluate my final answer briefly, and then provide a comprehensive summary of how I did in this interview overall since we have reached the ${TOTAL_QUESTIONS} question limit.`;
-            setPhase('completed');
-        } else {
-            prompt = `Here is my answer: "${currentAnswer}". 
-Please briefly evaluate my answer in 1-2 sentences. Then, explicitly state "Question ${nextCount} of ${TOTAL_QUESTIONS}:" and ask the next question about ${selectedTopic}.`;
-            setQuestionCount(nextCount);
-        }
-
-        await sendToAI(prompt, false);
+        await sendToAI(currentAnswer, false, currentConv);
     };
 
-    const sendToAI = async (promptText, isInitial = false) => {
+    const sendToAI = async (promptText, isInitial = false, currentConv = []) => {
         setIsLoading(true);
+        let evalCounted = false;
 
-        if (!isInitial) {
-            // Add empty assistant message for streaming
-            setConversation(prev => [...prev, { role: 'assistant', content: '' }]);
-        } else {
-            setConversation([{ role: 'assistant', content: '' }]);
-        }
+        // Add empty assistant message for streaming
+        setConversation(prev => [...prev, { role: 'assistant', content: '' }]);
+
+        // Exclude the current prompt from history since the API injects it directly
+        const historyToSend = currentConv.length > 0 ? currentConv.slice(0, currentConv.length - 1) : [];
 
         try {
-            // Reusing the existing hook - assuming it accepts text streams back
-            // Using English by default for technical interviews
             await useGetAIResponse(promptText, 'en', (text) => {
                 setConversation(prev => {
                     const newHistory = [...prev];
                     newHistory[newHistory.length - 1] = { role: 'assistant', content: text };
                     return newHistory;
                 });
-            }, '/api/interview');
+
+                // Auto-sync UI state based on AI's output stream
+                if (!evalCounted) {
+                    const evalMatch = text.match(/Evaluation:\s*\[?(Correct|Partial|Incorrect)\b/i);
+                    if (evalMatch) {
+                        evalCounted = true;
+                        const status = evalMatch[1].toLowerCase();
+                        setScore(prev => ({ ...prev, [status]: prev[status] + 1 }));
+                    }
+                }
+
+                const match = text.match(/Question\s*\[?\s*(\d+)/i);
+                if (match) {
+                    const count = parseInt(match[1], 10);
+                    if (!isNaN(count)) setQuestionCount(count);
+                }
+                
+                if (text.toLowerCase().includes("performance summary")) {
+                    setPhase('completed');
+                }
+            }, '/api/interview', historyToSend);
         } catch (error) {
             console.error("AI Error:", error);
             setConversation(prev => {
@@ -119,10 +130,6 @@ Please briefly evaluate my answer in 1-2 sentences. Then, explicitly state "Ques
                 newHistory[newHistory.length - 1] = { role: 'assistant', content: "Sorry, I encountered an error. Could you try answering again?" };
                 return newHistory;
             });
-            // Rollback question count if it failed
-            if (!isInitial && questionCount <= TOTAL_QUESTIONS) {
-                setQuestionCount(prev => prev - 1);
-            }
         } finally {
             setIsLoading(false);
         }
@@ -133,6 +140,7 @@ Please briefly evaluate my answer in 1-2 sentences. Then, explicitly state "Ques
         setSelectedTopic('');
         setConversation([]);
         setQuestionCount(0);
+        setScore({ correct: 0, partial: 0, incorrect: 0 });
         setUserAnswer('');
     };
 
@@ -216,6 +224,13 @@ Please briefly evaluate my answer in 1-2 sentences. Then, explicitly state "Ques
                         {phase === 'interviewing' && (
                             <Chip label="In Progress" color="warning" size="small" variant="outlined" />
                         )}
+                        {phase !== 'selection' && (
+                            <>
+                                <Chip label={`Correct: ${score.correct}`} color="success" size="small" variant="outlined" />
+                                <Chip label={`Partial: ${score.partial}`} color="warning" size="small" variant="outlined" />
+                                <Chip label={`Incorrect: ${score.incorrect}`} color="error" size="small" variant="outlined" />
+                            </>
+                        )}
                     </Stack>
                 </Box>
                 <Button variant="outlined" color="error" size="small" onClick={resetInterview}>
@@ -243,7 +258,9 @@ Please briefly evaluate my answer in 1-2 sentences. Then, explicitly state "Ques
                     borderRadius: 3
                 }}
             >
-                {conversation.map((msg, index) => (
+                {conversation.map((msg, index) => {
+                    if (msg.isHidden) return null;
+                    return (
                     <Box key={index} sx={{
                         display: 'flex',
                         justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start'
@@ -278,7 +295,8 @@ Please briefly evaluate my answer in 1-2 sentences. Then, explicitly state "Ques
                             )}
                         </Box>
                     </Box>
-                ))}
+                    );
+                })}
                 <div ref={messagesEndRef} />
             </Paper>
 

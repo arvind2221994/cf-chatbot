@@ -4,17 +4,17 @@
  * @param {Function} onChunk - Callback function to receive text chunks as they stream in
  * @returns {Promise<string|null>} - The complete AI response or null if error
  */
-export async function useGetAIResponse(prompt, language, onChunk) {
+export async function useGetAIResponse(prompt, language, onChunk, endpoint = '/api/chat') {
   if (!prompt || prompt.trim() === '') {
     return null;
   }
-  try{
+  try {
     const userPrompt = prompt;
     const models = await getExistingModels();
     console.log('Available models:', models);
-    const response = await fetch('/api/chat', {
+    const response = await fetch(endpoint, {
       method: 'POST',
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         prompt: userPrompt,
         language: language
       }),
@@ -34,11 +34,11 @@ export async function useGetAIResponse(prompt, language, onChunk) {
       // Update your React state here to show the text as it arrives
       onChunk(fullText);
     }
-  }catch(error){
+  } catch (error) {
     console.error('Error fetching AI response:', error);
     throw error;
   }
-  
+
 }
 
 /**
@@ -51,11 +51,11 @@ export async function getExistingModels() {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
+
     const data = await response.json();
     return data.models;
   } catch (error) {
